@@ -59,7 +59,8 @@
 }
 ```
 
-> readLargeExcel(커스텀된 메소드로 SheetHandler 실행 하는 메소드이다)
+> readLargeExcel(커스텀된 메소드로 SheetHandler 실행 하는 메소드이다)<br>
+
 *SAX parsing 클래스(엑셀 파일을 읽어드리는 함수)
 
 ```C
@@ -109,4 +110,113 @@
            
            return sheetHandler;
      }
+```
+
+##SAX 파싱 방법 이용시 알아야 할점
+>엑셀 양식이 어떻냐에 따라 다르겠지만 만약 한국식 날짜를 이용하는 경우 SAX 파싱을 이용할 경우 강제적으로 미국식 날짜를 가져오게된다. 
+>> ex) 2021-01-01 -> 01/01/21로 강제 변환하여 들고 오게된다.
+>> 이유 : SHeetContentsHandler는 **XSSFSheetXMLHandler**에 속하여 있다. **XSSFSheetXMLHandler**에서 실질적 데이터를 가져오게 된다.
+>> XSSFSheetXMLHandler는 날짜 변환에 **DataFormatter**를 이용하고 있다. 
+>> DataFormatter는 데이터에서 날짜가 어떤 locale을 가지던지 미국식 영어로 변환하여 가져오게 된다.
+>> 만약 커스텀 마이징이 필요한 경우 DefaultHandler를 상속받아 클래스를 새로 정의 해줘 사용해야한다.
+
+-> 커스텀 마이징이 되어야하는 
+```C
+   public void endElement(String uri, String localName,  String name)
+                throws SAXException {
+            String thisStr = null;
+            // v => contents of a cell
+            if (isTextTag(name)) {
+                vIsOpen = false;
+                
+                // Process the value contents as required, now  we have it all
+                switch (nextDataType) {
+                    case BOOLEAN:
+                        char first = value.charAt(0);
+                        thisStr = first == '0' ? "FALSE" :  "TRUE";
+                        break;
+                    case ERROR:
+                        thisStr = "ERROR:" + value.toString();
+                        break;
+                    case FORMULA:
+                        if(formulasNotResults) {
+                           thisStr = formula.toString();
+                        } else {
+                           String fv = value.toString();
+                           
+                           if (this.formatString != null) {
+                              try {
+                                 // Try to use the value as a  formattable number
+                                 double d =  Double.parseDouble(fv);
+                                 thisStr =  formatter.formatRawCellContents(d, this.formatIndex,  this.formatString);
+                              } catch(NumberFormatException e)  {
+                                 // Formula is a String result  not a Numeric one
+                                 thisStr = fv;
+                              }
+                           } else {
+                              // No formating applied, just do  raw value in all cases
+                              thisStr = fv;
+                           }
+                        }
+                        break;
+                    case INLINE_STRING:
+                        // TODO: Can these ever have formatting  on them?
+                        XSSFRichTextString rtsi = new  XSSFRichTextString(value.toString());
+                        thisStr = rtsi.toString();
+                        break;
+                    case SST_STRING:
+                        String sstIndex = value.toString();
+                        try {
+                            int idx =  Integer.parseInt(sstIndex);
+                            XSSFRichTextString rtss = new  XSSFRichTextString(sharedStringsTable.getEntryAt(idx));
+                            thisStr = rtss.toString();
+                        }
+                        catch (NumberFormatException ex) {
+                            System.err.println("Failed to parse  SST index '" + sstIndex + "': " + ex.toString());
+                        }
+                        break;
+                    case NUMBER:
+                        String n = value.toString();
+                        //formatIndex에 대하여 현재 설정된 번호에 한에서 한국식으로 받아 처리 할 수 있도록 커스터마이징을 진행 대부분 formatIndex 가 14일경우는 날짜로? 가져가는 거 같음
+                        if (this.formatString != null) {    
+                             //날짜 형식 관련 데이터들을  locale.Korea 형식으로 변경
+                             if(formatIndex == 14 ||  formatIndex == 31 || formatIndex == 57 || formatIndex == 58 ||
+                             (176 <= formatIndex && formatIndex  <=178) || (182 <= formatIndex && formatIndex <= 196) ||
+                             (210 <= formatIndex && formatIndex  <=213) || (208 == formatIndex)) {
+                                   sdf = new  SimpleDateFormat("yyyy-MM-dd");
+                                   Date date =  DateUtil.getJavaDate(Double.parseDouble(n)); //해당값을 Date형으로 들고오게 함 그리하여 format을 통해 데이터를 재구성함
+                                   thisStr = sdf.format(date);
+                             }else {
+                                   //Apache POI DataFormatter  formatter 는  로케일 형식 무시하고 미국 형식 날짜 표기법으로 반환함
+                                   thisStr =  formatter.formatRawCellContents(Double.parseDouble(n),  this.formatIndex, this.formatString);
+                             }
+                        }else
+                            thisStr = n;
+                        break;
+                    default:
+                        thisStr = "(TODO: Unexpected type: " +  nextDataType + ")";
+                        break;
+                }
+                
+                // Output
+                output.cell(cellRef, thisStr);
+            } else if ("f".equals(name)) {
+               fIsOpen = false;
+            } else if ("is".equals(name)) {
+               isIsOpen = false;
+            } else if ("row".equals(name)) {
+               output.endRow();
+            }
+            else if("oddHeader".equals(name) ||  "evenHeader".equals(name) ||
+                  "firstHeader".equals(name)) {
+               hfIsOpen = false;
+               output.headerFooter(headerFooter.toString(),  true, name);
+            }
+            else if("oddFooter".equals(name) ||  "evenFooter".equals(name) ||
+                  "firstFooter".equals(name)) {
+               hfIsOpen = false;
+               output.headerFooter(headerFooter.toString(),  false, name);
+            }
+        }
+
 ```
