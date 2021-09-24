@@ -118,9 +118,12 @@
 >> 이유 : SHeetContentsHandler는 **XSSFSheetXMLHandler**에 속하여 있다. **XSSFSheetXMLHandler**에서 실질적 데이터를 가져오게 된다.
 >> XSSFSheetXMLHandler는 날짜 변환에 **DataFormatter**를 이용하고 있다. 
 >> DataFormatter는 데이터에서 날짜가 어떤 locale을 가지던지 미국식 영어로 변환하여 가져오게 된다.
->> 만약 커스텀 마이징이 필요한 경우 DefaultHandler를 상속받아 클래스를 새로 정의 해줘 사용해야한다.
+>> 만약 커스텀 마이징이 필요한 경우 **DefaultHandler**를 상속받아 클래스를 새로 정의 해줘 사용해야한다.
 
--> 커스텀 마이징이 되어야하는 
+예시)
+>> XSSFSheetXMLMyHandler(임의 지정 클래스 명) extends DefaultHandler 형태로 커스텀 진행
+-> 특정 날짜 부분 커스텀 마이징이 되어야하는 부분
+> **endElement**는 문서의 끝이 인식되었을 때 발생하는 이벤트 처리 메소드
 ```C
    public void endElement(String uri, String localName,  String name)
                 throws SAXException {
@@ -177,14 +180,16 @@
                         break;
                     case NUMBER:
                         String n = value.toString();
-                        //formatIndex에 대하여 현재 설정된 번호에 한에서 한국식으로 받아 처리 할 수 있도록 커스터마이징을 진행 대부분 formatIndex 가 14일경우는 날짜로? 가져가는 거 같음
+                        //formatIndex에 대하여 현재 설정된 번호에 한에서 한국식으로 받아 처리 할 수 있도록 
+                        커스터마이징을 진행 대부분 formatIndex 가 14일경우는 날짜로? 가져가는 거 같음
                         if (this.formatString != null) {    
                              //날짜 형식 관련 데이터들을  locale.Korea 형식으로 변경
                              if(formatIndex == 14 ||  formatIndex == 31 || formatIndex == 57 || formatIndex == 58 ||
                              (176 <= formatIndex && formatIndex  <=178) || (182 <= formatIndex && formatIndex <= 196) ||
                              (210 <= formatIndex && formatIndex  <=213) || (208 == formatIndex)) {
                                    sdf = new  SimpleDateFormat("yyyy-MM-dd");
-                                   Date date =  DateUtil.getJavaDate(Double.parseDouble(n)); //해당값을 Date형으로 들고오게 함 그리하여 format을 통해 데이터를 재구성함
+                                   //해당값을 Date형으로 들고오게 함 그리하여 format을 통해 데이터를 재구성함
+                                   Date date =  DateUtil.getJavaDate(Double.parseDouble(n)); 
                                    thisStr = sdf.format(date);
                              }else {
                                    //Apache POI DataFormatter  formatter 는  로케일 형식 무시하고 미국 형식 날짜 표기법으로 반환함
