@@ -59,4 +59,54 @@
 }
 ```
 
+> readLargeExcel(커스텀된 메소드로 SheetHandler 실행 하는 메소드이다)
 *SAX parsing 클래스(엑셀 파일을 읽어드리는 함수)
+
+```C
+//대용량 데이터 처리사용
+     public static SheetHandler readLargeExcel(String  path,List<PublicCodeVO> publicCodelist) {
+           SheetHandler sheetHandler = new  SheetHandler(publicCodelist);
+           
+                     // 현재 읽고자 하는 파일 가져오기
+           File file = new File(path);
+           try {
+                //OPCPagkage 파일을 읽거나 쓸 수 있는 상태의 컨테이너를 생성
+                OPCPackage opc = OPCPackage.open(file);
+                //OPC 컨테이너를 XSSF형식으로 읽어 옴
+                XSSFReader xssfReader = new XSSFReader(opc);
+                //엑셀 스타일 형식을 가져오는건데.....
+                StylesTable styles =  xssfReader.getStylesTable();
+                
+                ReadOnlySharedStringsTable strings = new  ReadOnlySharedStringsTable(opc);
+                
+                //엑셀의 시트를 하나만 가져옴
+                //만양 여러 시트를 가져와야 할경우 while 문을 통해 처리
+                //ex) xssfReader.getSheetsData().next(); 대신
+                                // XSSFReader.Sheetlterator itr = (XSSFReader.Sheetlterator)xssfReader.getSheetsData(); -> sheet별로 collection으로 분할함
+                                // while(itr.hasNext()) 를 통해 InputStream inputStream = itr.next(); 를 이용
+                InputStream inputStream =  xssfReader.getSheetsData().next();
+                
+                InputSource inputSource = new  InputSource(inputStream);
+                //직접적인 sheet의 cell과 row를 생성하는 이벤트
+//              ContentHandler handle = new  XSSFSheetXMLHandler(styles, strings, sheetHandler, false);
+                //XSSFSheetXMLHandler 를 재정의함
+                ContentHandler handle = new  XSSFSheetXMLMyHandler(styles, strings, sheetHandler, false);
+                
+                SAXParserFactory saxFactory =  SAXParserFactory.newInstance();
+                SAXParser saxParser = saxFactory.newSAXParser();
+                
+                XMLReader xmlReader = saxParser.getXMLReader();
+                xmlReader.setContentHandler(handle);
+                
+                xmlReader.parse(inputSource);
+                inputStream.close();
+                opc.close();
+                
+           }catch (Exception e) {
+                LOGGER.error("### excel read file error :  {}",e.getMessage());
+                sheetHandler.setRows(null);
+           }
+           
+           return sheetHandler;
+     }
+```
