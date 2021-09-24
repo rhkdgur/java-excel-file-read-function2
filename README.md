@@ -120,10 +120,11 @@
 >> DataFormatter는 데이터에서 날짜가 어떤 locale을 가지던지 미국식 영어로 변환하여 가져오게 된다.
 >> 만약 커스텀 마이징이 필요한 경우 **DefaultHandler**를 상속받아 클래스를 새로 정의 해줘 사용해야한다.
 
+
 예시)
->> XSSFSheetXMLMyHandler(임의 지정 클래스 명) extends DefaultHandler 형태로 커스텀 진행
--> 특정 날짜 부분 커스텀 마이징이 되어야하는 부분
-> **endElement**는 문서의 끝이 인식되었을 때 발생하는 이벤트 처리 메소드
+>> XSSFSheetXMLMyHandler(임의 지정 클래스 명) extends DefaultHandler 형태로 커스텀 진행<br>
+-> 특정 날짜 부분 커스텀 마이징이 되어야하는 부분<br>
+> **endElement**는 문서의 끝이 인식되었을 때 발생하는 이벤트 처리 메소드<br>
 ```C
    public void endElement(String uri, String localName,  String name)
                 throws SAXException {
